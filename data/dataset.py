@@ -38,7 +38,7 @@ class Dataset(torch.utils.data.Dataset):
 
     @property
     def sample_size(self) -> int:
-        return 5
+        return self._mat.shape[-1]
     
     def scale_back(self, data):
         data = np.array(data, dtype=self._precision)
