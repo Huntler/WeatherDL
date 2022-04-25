@@ -5,11 +5,11 @@ model_args:
   lr: 0.02
   lr_decay: 0.9
   adam_betas: [0.9, 0.999]
-  kernel_size: 5
+  kernel_size: [4, 5]
   stride: 1
   padding: 0
-  hidden_dim: 256
-  xavier_init: True
+  hidden_dim: 128
+  init_method: ones
   out_act: sigmoid
 dataset_args:
   d_type: train

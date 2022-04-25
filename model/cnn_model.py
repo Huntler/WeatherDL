@@ -1,4 +1,6 @@
+from argparse import ArgumentError
 from typing import Tuple
+import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ExponentialLR
@@ -11,11 +13,11 @@ from submodules.TimeSeriesDL.model.base_model import BaseModel
 #       this feature is not relevant for predicting the temperature ahead
 
 
-class CNNModel(BaseModel):
+class CNNLSTMModel(BaseModel):
     def __init__(self, kernel_size: int = 5, stride: int = 1, padding: int = 0,
                  lr: float = 3e-3, lr_decay: float = 0.99, adam_betas: Tuple[float] = [0.9, 0.999],
-                 lstm_hidden: int = 64, xavier: bool = False, precision: torch.dtype = torch.float32, 
-                 log: bool = True) -> None:
+                 lstm_hidden: int = 64, init_method: str = "zeros", precision: torch.dtype = torch.float32, 
+                 out_act: str = "linear", log: bool = True) -> None:
         # if logging enalbed, then create a tensorboard writer, otherwise prevent the
         # parent class to create a standard writer
         if log:
@@ -27,10 +29,11 @@ class CNNModel(BaseModel):
             self._writer = False
 
         # initialize components using the parent class
-        super(CNNModel, self).__init__()
+        super(CNNLSTMModel, self).__init__()
 
         self.__precision = precision
-        self.__xavier = xavier
+        self.__output_activation = out_act
+        self.__init_method = init_method
 
         # CNN hyperparameters
         self.__kernel_size = kernel_size
@@ -80,23 +83,34 @@ class CNNModel(BaseModel):
         self._scheduler = ExponentialLR(self._optim, gamma=lr_decay)
 
     def _init_layers(self) -> None:
-        if self.__xavier:
-            self.__conv_1.weight = torch.nn.init.xavier_normal_(
-                self.__conv_1.weight)
-            self.__linear_1.weight = torch.nn.init.xavier_normal_(
-                self.__linear_1.weight)
-            self.__linear_2.weight = torch.nn.init.xavier_normal_(
-                self.__linear_2.weight)
-        else:
-            self.__conv_1.weight = torch.nn.init.zeros_(self.__conv_1.weight)
-            self.__linear_1.weight = torch.nn.init.zeros_(self.__linear_1.weight)
-            self.__linear_2.weight = torch.nn.init.zeros_(self.__linear_2.weight)
+        match self.__init_method:
+            case "xavier":
+                self.__conv_1.weight = torch.nn.init.xavier_normal_(
+                    self.__conv_1.weight)
+                self.__linear_1.weight = torch.nn.init.xavier_normal_(
+                    self.__linear_1.weight)
+                self.__linear_2.weight = torch.nn.init.xavier_normal_(
+                    self.__linear_2.weight)
+
+            case "zeros":
+                self.__conv_1.weight = torch.nn.init.zeros_(self.__conv_1.weight)
+                self.__linear_1.weight = torch.nn.init.zeros_(self.__linear_1.weight)
+                self.__linear_2.weight = torch.nn.init.zeros_(self.__linear_2.weight)
+                
+            case "ones":
+                self.__conv_1.weight = torch.nn.init.ones_(self.__conv_1.weight)
+                self.__linear_1.weight = torch.nn.init.ones_(self.__linear_1.weight)
+                self.__linear_2.weight = torch.nn.init.ones_(self.__linear_2.weight)
 
     def load(self, path) -> None:
         """Loads the model's parameter given a path
         """
         self.load_state_dict(torch.load(path))
         self.eval()
+
+    def get_filter(self) -> np.array:
+        # filter_wights = torch.clone(self.__conv_1.weight[0, 0, :, :])
+        return np.array(self.__conv_1.weight[0, 0, :, :].detach().numpy())
 
     def forward(self, X) -> torch.tensor:
         batch_size, sequence_length, n_samples, features = X.shape
@@ -131,7 +145,19 @@ class CNNModel(BaseModel):
         x = self.__linear_1(x)
         x = torch.relu(x)
         
+        # output from the last layer
         x = self.__linear_2(x)
-        x = torch.relu(x)
 
-        return x
+        if self.__output_activation == "relu":
+            output = torch.relu(x)
+        elif self.__output_activation == "sigmoid":
+            output = torch.sigmoid(x)
+        elif self.__output_activation == "tanh":
+            output = torch.tanh(x)
+        elif self.__output_activation == "linear":
+            output = x
+        else:
+            raise ArgumentError(
+                "Wrong output actiavtion specified (relu | sigmoid | tanh).")
+
+        return output
