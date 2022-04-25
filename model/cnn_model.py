@@ -14,7 +14,7 @@ from submodules.TimeSeriesDL.model.base_model import BaseModel
 
 
 class CNNLSTMModel(BaseModel):
-    def __init__(self, kernel_size: int = 5, stride: int = 1, padding: int = 0,
+    def __init__(self, ch_in: int = 1, ch_out: int = 1, kernel_size: int = 5, stride: int = 1, padding: int = 0,
                  lr: float = 3e-3, lr_decay: float = 0.99, adam_betas: Tuple[float] = [0.9, 0.999],
                  lstm_hidden: int = 64, init_method: str = "zeros", precision: torch.dtype = torch.float32, 
                  out_act: str = "linear", log: bool = True) -> None:
@@ -43,8 +43,8 @@ class CNNLSTMModel(BaseModel):
         # input shape is:
         # sequence_length x n_cities x n_features
         self.__conv_1 = torch.nn.Conv2d(
-            in_channels=1, 
-            out_channels=1, 
+            in_channels=ch_in, 
+            out_channels=ch_out, 
             kernel_size=self.__kernel_size, 
             stride=self.__stride, 
             padding=self.__padding,
@@ -96,7 +96,7 @@ class CNNLSTMModel(BaseModel):
                 self.__conv_1.weight = torch.nn.init.zeros_(self.__conv_1.weight)
                 self.__linear_1.weight = torch.nn.init.zeros_(self.__linear_1.weight)
                 self.__linear_2.weight = torch.nn.init.zeros_(self.__linear_2.weight)
-                
+
             case "ones":
                 self.__conv_1.weight = torch.nn.init.ones_(self.__conv_1.weight)
                 self.__linear_1.weight = torch.nn.init.ones_(self.__linear_1.weight)
@@ -109,19 +109,17 @@ class CNNLSTMModel(BaseModel):
         self.eval()
 
     def get_filter(self) -> np.array:
-        # filter_wights = torch.clone(self.__conv_1.weight[0, 0, :, :])
-        return np.array(self.__conv_1.weight[0, 0, :, :].detach().numpy())
+        k_filter = np.array(self.__conv_1.weight.detach().numpy())
+        k_filter = np.mean(k_filter, axis=(0, 1))
+        return k_filter
 
     def forward(self, X) -> torch.tensor:
         batch_size, sequence_length, n_samples, features = X.shape
 
-        # pass data through CNN
-        x = torch.empty(batch_size, sequence_length, 1)
-        for i in range(sequence_length):
-            _x = torch.unsqueeze(X[:, i], 1)
-            _x = self.__conv_1(_x)
-            x[:, i] = _x[:, 0, 0]
+        x = self.__conv_1(X)
+        x = x[:, :, 0]
 
+        # pass data through CNN
         x = torch.relu(x)
 
         # reset LSTM's cell states
@@ -132,13 +130,8 @@ class CNNLSTMModel(BaseModel):
         x = torch.swapaxes(x, 0, 1)
 
         # pass each timestep as batch into LSTM
-        for i in range(sequence_length):
+        for i in range(x.size(0)):
             h, c = self.__lstm_1(x[i], (h, c))
-
-        # feed the last output of the LSTM back into the LSTM to predict 
-        # one step ahead
-        x = torch.unsqueeze(h[:, -1], -1)
-        h, c = self.__lstm_1(x, (h, c))
         x = torch.relu(h)
 
         # forward pass the LSTM's output through a couple of dense layers

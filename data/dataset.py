@@ -49,5 +49,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         X = self._mat[index:self._seq + index, :, :]
+        # y is every value after the sequence until future steps, 
+        # the temperature (at index 2) from the last city (at index -1)
         y = self._mat[self._seq + index:self._seq + index + self._f_seq, -1, 2]
         return X, y

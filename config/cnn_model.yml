@@ -5,12 +5,14 @@ model_args:
   lr: 0.02
   lr_decay: 0.9
   adam_betas: [0.9, 0.999]
+  ch_in: 48
+  ch_out: 48
   kernel_size: [4, 5]
   stride: 1
   padding: 0
   hidden_dim: 128
-  init_method: ones
-  out_act: sigmoid
+  init_method: zeros
+  out_act: linear
 dataset_args:
   d_type: train
   normalize: True
@@ -19,7 +21,7 @@ dataset_args:
   future_steps: 1
 dataloader_args:
   num_workers: 0
-  batch_size: 512
+  batch_size: 128
   shuffle: True
 train_epochs: 5
 evaluation: None
