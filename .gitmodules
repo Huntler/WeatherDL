@@ -1,0 +1,3 @@
+[submodule "submodules/TimeSeriesDL"]
+	path = submodules/TimeSeriesDL
+	url = https://github.com/Huntler/TimeSeriesDL
