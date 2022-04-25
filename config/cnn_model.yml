@@ -1,5 +1,5 @@
 device: cpu
-model_name: CNNModel
+model_name: CNN-LSTM-Model
 model_args:
   log: True
   lr: 0.02
@@ -10,7 +10,7 @@ model_args:
   kernel_size: [4, 5]
   stride: 1
   padding: 0
-  hidden_dim: 128
+  lstm_hidden: 128
   init_method: zeros
   out_act: linear
 dataset_args:
