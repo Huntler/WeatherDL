@@ -118,6 +118,12 @@ if __name__ == "__main__":
     
     config_path = sys.argv[1]
     config_dict = config.get_args(config_path)
+
+    # perform some config checks
+    ch_in = config_dict["model_args"]["ch_in"]
+    seq_len = config_dict["dataset_args"]["sequence_length"]
+    if ch_in != seq_len:
+        raise RuntimeError(f"Input channel ({ch_in}) and sequence length ({seq_len}) must match.")
     
     # define parameters (depending on device, lower the precision to save memory)
     device = config_dict["device"]
