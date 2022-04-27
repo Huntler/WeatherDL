@@ -15,9 +15,15 @@ class Dataset(torch.utils.data.Dataset):
         self._f_seq = future_steps
         
         # load the dataset specified
-        self._file = f"./data/{d_type}.mat"
+        self._file = "./data/data.mat"
         self._mat = scipy.io.loadmat(self._file).get("X")
         self._mat = self._mat.astype(self._precision)
+
+        # the train set includes all values until the las 168 ones (1 week)
+        if d_type == "train":
+            self._mat = self._mat[:-168]
+        else:
+            self._mat = self._mat[-168:]
 
         # normalize the dataset between values of 0 to 1
         self._scaler = [None for _ in range(self.sample_size)]

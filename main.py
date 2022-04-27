@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 import torch
 import sys
+import copy
 
 from submodules.TimeSeriesDL.model.base_model import BaseModel
 from data.dataset import Dataset
@@ -28,21 +29,29 @@ def prepare_data(mode: str):
             return dl_1, dl_2
 
         case "test":
-            # TODO
-            return None
+            test_config = copy.deepcopy(config_dict["dataset_args"])
+            test_config["d_type"] = "test"
+            testset = Dataset(**test_config)
+            dl = DataLoader(testset)
+            return dl
 
 def prepare_model() -> BaseModel:    
+    # load model flag
+    load_flag = False if config_dict["evaluation"] == "None" else True
+    log = config_dict["model_args"]["log"]
+    config_dict["model_args"]["log"] = False if load_flag else log
+
     # create model
     model_name = config_dict["model_name"]
     model: BaseModel = config.get_model(model_name)(**config_dict["model_args"])
 
     # define log path in config and move the current hyperparameters to
     # this driectory
-    if config_dict["evaluation"] is None:
+    if not load_flag:
         config_dict["evaluation"] = model.log_path
         config.store_args(f"{model.log_path}/config.yml", config_dict)
 
-    print(f"Prepared model: {model.log_path}")
+    print(f"Prepared model: {model_name}")
     return model
 
 def train():
@@ -63,7 +72,17 @@ def train():
 
 def test():
     test = prepare_data(mode="test")
-    # TODO
+    model = prepare_model()
+
+    y = []
+    for X, _ in test:
+        # after predicting the first temperature, use it for future predictions
+        if len(y) > 0:
+            X[:, -len(y):, -1, 2] = torch.tensor([y])
+            
+        y += model.predict(X, as_list=True)
+        if len(y) > config_dict["dataset_args"]["sequence_length"]:
+            y.pop(0)
 
 if __name__ == "__main__":
     freeze_support()
