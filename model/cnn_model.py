@@ -1,4 +1,5 @@
 from argparse import ArgumentError
+import contextlib
 from typing import Tuple
 import numpy as np
 import torch
@@ -12,6 +13,11 @@ from submodules.TimeSeriesDL.model.base_model import BaseModel
 #       then visualize the filter after training, if a weight is close to 0, then
 #       this feature is not relevant for predicting the temperature ahead
 
+
+@contextlib.contextmanager
+def no_autocast():
+    yield None
+    
 
 class CNNLSTMModel(BaseModel):
     def __init__(self, ch_in: int = 1, ch_out: int = 1, kernel_size: int = 5, stride: int = 1, padding: int = 0,
@@ -109,48 +115,50 @@ class CNNLSTMModel(BaseModel):
         self.eval()
 
     def get_filter(self) -> np.array:
-        k_filter = np.array(self.__conv_1.weight.detach().numpy())
+        k_filter = np.array(self.__conv_1.weight.cpu().detach().numpy())
         k_filter = np.mean(k_filter, axis=(0, 1))
         return k_filter
 
-    def forward(self, X) -> torch.tensor:
+    def forward(self, X: torch.tensor) -> torch.tensor:
         batch_size, sequence_length, n_samples, features = X.shape
 
-        x = self.__conv_1(X)
-        x = x[:, :, 0]
+        # run for a given amount of epochs
+        with torch.cuda.amp.autocast() if self._device == "cuda" else no_autocast():
+            x = self.__conv_1(X)
+            x = x[:, :, 0]
 
-        # pass data through CNN
-        x = torch.relu(x)
+            # pass data through CNN
+            x = torch.relu(x)
 
-        # reset LSTM's cell states
-        h = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision)
-        c = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision)
+            # reset LSTM's cell states
+            h = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
+            c = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
 
-        # shape of x should be: (sequence_length, batch_size, 1)
-        x = torch.swapaxes(x, 0, 1)
+            # shape of x should be: (sequence_length, batch_size, 1)
+            x = torch.swapaxes(x, 0, 1)
 
-        # pass each timestep as batch into LSTM
-        for i in range(x.size(0)):
-            h, c = self.__lstm_1(x[i], (h, c))
-        x = torch.relu(h)
+            # pass each timestep as batch into LSTM
+            for i in range(x.size(0)):
+                h, c = self.__lstm_1(x[i], (h, c))
+            x = torch.relu(h)
 
-        # forward pass the LSTM's output through a couple of dense layers
-        x = self.__linear_1(x)
-        x = torch.relu(x)
-        
-        # output from the last layer
-        x = self.__linear_2(x)
+            # forward pass the LSTM's output through a couple of dense layers
+            x = self.__linear_1(x)
+            x = torch.relu(x)
+            
+            # output from the last layer
+            x = self.__linear_2(x)
 
-        if self.__output_activation == "relu":
-            output = torch.relu(x)
-        elif self.__output_activation == "sigmoid":
-            output = torch.sigmoid(x)
-        elif self.__output_activation == "tanh":
-            output = torch.tanh(x)
-        elif self.__output_activation == "linear":
-            output = x
-        else:
-            raise ArgumentError(
-                "Wrong output actiavtion specified (relu | sigmoid | tanh).")
+            if self.__output_activation == "relu":
+                output = torch.relu(x)
+            elif self.__output_activation == "sigmoid":
+                output = torch.sigmoid(x)
+            elif self.__output_activation == "tanh":
+                output = torch.tanh(x)
+            elif self.__output_activation == "linear":
+                output = x
+            else:
+                raise ArgumentError(
+                    "Wrong output actiavtion specified (relu | sigmoid | tanh).")
 
         return output

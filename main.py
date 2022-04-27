@@ -43,7 +43,8 @@ def prepare_model() -> BaseModel:
 
     # create model
     model_name = config_dict["model_name"]
-    model: BaseModel = config.get_model(model_name)(**config_dict["model_args"])
+    model: BaseModel = config.get_model(model_name)(**config_dict["model_args"], precision=precision)
+    model.use_device(device)
 
     # define log path in config and move the current hyperparameters to
     # this driectory
