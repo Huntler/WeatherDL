@@ -1,12 +1,12 @@
-device: cpu
+device: cuda
 model_name: CNN-LSTM-Model
 model_args:
   log: True
-  lr: 0.02
+  lr: 0.003
   lr_decay: 0.9
   adam_betas: [0.9, 0.999]
   ch_in: 48
-  ch_out: 48
+  ch_out: 192
   kernel_size: [4, 5]
   stride: 1
   padding: 0
@@ -23,5 +23,5 @@ dataloader_args:
   num_workers: 0
   batch_size: 128
   shuffle: True
-train_epochs: 5
+train_epochs: 20
 evaluation: None

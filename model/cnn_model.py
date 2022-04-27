@@ -123,42 +123,41 @@ class CNNLSTMModel(BaseModel):
         batch_size, sequence_length, n_samples, features = X.shape
 
         # run for a given amount of epochs
-        with torch.cuda.amp.autocast() if self._device == "cuda" else no_autocast():
-            x = self.__conv_1(X)
-            x = x[:, :, 0]
+        # pass data through CNN
+        # x = torch.unsqueeze(X, 2)
+        x = self.__conv_1(X)
+        x = x[:, :, 0]
+        x = torch.relu(x)
 
-            # pass data through CNN
-            x = torch.relu(x)
+        # reset LSTM's cell states
+        h = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
+        c = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
 
-            # reset LSTM's cell states
-            h = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
-            c = torch.zeros(batch_size, self.__hidden_dim, dtype=self.__precision, device=self._device)
+        # shape of x should be: (sequence_length, batch_size, 1)
+        x = torch.swapaxes(x, 0, 1)
 
-            # shape of x should be: (sequence_length, batch_size, 1)
-            x = torch.swapaxes(x, 0, 1)
+        # pass each timestep as batch into LSTM
+        for i in range(x.size(0)):
+            h, c = self.__lstm_1(x[i], (h, c))
+        x = torch.relu(h)
 
-            # pass each timestep as batch into LSTM
-            for i in range(x.size(0)):
-                h, c = self.__lstm_1(x[i], (h, c))
-            x = torch.relu(h)
+        # forward pass the LSTM's output through a couple of dense layers
+        x = self.__linear_1(x)
+        x = torch.relu(x)
+        
+        # output from the last layer
+        x = self.__linear_2(x)
 
-            # forward pass the LSTM's output through a couple of dense layers
-            x = self.__linear_1(x)
-            x = torch.relu(x)
-            
-            # output from the last layer
-            x = self.__linear_2(x)
-
-            if self.__output_activation == "relu":
-                output = torch.relu(x)
-            elif self.__output_activation == "sigmoid":
-                output = torch.sigmoid(x)
-            elif self.__output_activation == "tanh":
-                output = torch.tanh(x)
-            elif self.__output_activation == "linear":
-                output = x
-            else:
-                raise ArgumentError(
-                    "Wrong output actiavtion specified (relu | sigmoid | tanh).")
+        if self.__output_activation == "relu":
+            output = torch.relu(x)
+        elif self.__output_activation == "sigmoid":
+            output = torch.sigmoid(x)
+        elif self.__output_activation == "tanh":
+            output = torch.tanh(x)
+        elif self.__output_activation == "linear":
+            output = x
+        else:
+            raise ArgumentError(
+                "Wrong output actiavtion specified (relu | sigmoid | tanh).")
 
         return output
