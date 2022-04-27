@@ -18,7 +18,6 @@ def show_images(images: List, names: List = None, size: Tuple[int] = (5, 5), cma
         if names:
             axarr.set_title(names[0])
 
-        #axarr.axis("off")
         return
 
     # case multiple images provided
@@ -35,4 +34,18 @@ def show_images(images: List, names: List = None, size: Tuple[int] = (5, 5), cma
             axarr[i].set_title(names[i])
 
     f.tight_layout()
-        #axarr[i].axis("off")
+
+
+def plot_temperatures(data, names: List = None, size: Tuple[int] = (5, 5)) -> None:
+    f, axarr = plt.subplots(1, 1, figsize=size)
+
+    # case one image provided
+    for _data in data:
+        _data = np.array(_data)
+        x_range = range(len(_data))
+        axarr.plot(x_range, _data)        
+
+    if names:
+        axarr.legend(names)
+
+    f.tight_layout()

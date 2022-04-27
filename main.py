@@ -9,7 +9,7 @@ import copy
 from submodules.TimeSeriesDL.model.base_model import BaseModel
 from data.dataset import Dataset
 from utils.config import config
-from utils.plotter import show_images
+from utils.plotter import plot_temperatures, show_images
 
 
 config_dict = None
@@ -74,15 +74,29 @@ def test():
     test = prepare_data(mode="test")
     model = prepare_model()
 
+    real_temp = []
+    pred_temp = []
+
     y = []
-    for X, _ in test:
+    for X, temp in test:
         # after predicting the first temperature, use it for future predictions
-        if len(y) > 0:
-            X[:, -len(y):, -1, 2] = torch.tensor([y])
+        if len(y) == config_dict["dataset_args"]["sequence_length"]:
+            X[:, :, -1, 2] = torch.tensor([y])
+            y += model.predict(X, as_list=True)
+        else:
+            _ = model.predict(X, as_list=True)
+            y.append(temp.numpy()[0][0])
             
-        y += model.predict(X, as_list=True)
         if len(y) > config_dict["dataset_args"]["sequence_length"]:
             y.pop(0)
+        
+        real_temp.append(temp.numpy()[0])
+        pred_temp.append(y[-1])
+        print(y[-1])
+
+    plot_temperatures([pred_temp, real_temp], ["pred", "real"], size=(20, 10))
+    path = config_dict["evaluation"]
+    plt.savefig(f"{path}/temperature_city_4.png")
 
 if __name__ == "__main__":
     freeze_support()
