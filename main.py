@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 import torch
 import sys
+import os
 import copy
 
 from submodules.TimeSeriesDL.model.base_model import BaseModel
@@ -36,6 +37,7 @@ def prepare_data(mode: str):
             return dl
 
 def prepare_model() -> BaseModel:    
+
     # load model flag
     load_flag = False if config_dict["evaluation"] == "None" else True
     log = config_dict["model_args"]["log"]
@@ -51,8 +53,20 @@ def prepare_model() -> BaseModel:
     if not load_flag:
         config_dict["evaluation"] = model.log_path
         config.store_args(f"{model.log_path}/config.yml", config_dict)
+        print(f"Prepared model: {model_name}")
+        return model
+    
+    path = config_dict["evaluation"]
+    model_versions = []
+    for file in os.listdir(path):
+        if ".torch" in file:
+            model_versions.append(f"{path}/{file}")
+    model_versions.sort(reverse=True)
 
-    print(f"Prepared model: {model_name}")
+    print(model_versions[0])
+    model.load(model_versions[0])
+
+    print(f"Loaded model: {model_name} ({path})")
     return model
 
 def train():
@@ -82,6 +96,7 @@ def test():
     for X, temp in test:
         # after predicting the first temperature, use it for future predictions
         if len(y) == config_dict["dataset_args"]["sequence_length"]:
+            print(X[:, :, -1, 2], y)
             X[:, :, -1, 2] = torch.tensor([y])
             y += model.predict(X, as_list=True)
         else:
@@ -93,7 +108,6 @@ def test():
         
         real_temp.append(temp.numpy()[0])
         pred_temp.append(y[-1])
-        print(y[-1])
 
     plot_temperatures([pred_temp, real_temp], ["pred", "real"], size=(20, 10))
     path = config_dict["evaluation"]
@@ -107,7 +121,7 @@ if __name__ == "__main__":
     
     # define parameters (depending on device, lower the precision to save memory)
     device = config_dict["device"]
-    precision = torch.float16 if device == "cuda" else torch.float32
+    precision = torch.float32# torch.float16 if device == "cuda" else torch.float32
 
     if config_dict["evaluation"] == "None":
         train()
