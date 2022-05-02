@@ -115,7 +115,6 @@ class PURECNNModel(BaseModel):
 
         # run for a given amount of epochs
         # pass data through CNN
-        # x = torch.unsqueeze(X, 2)
         x = self.__conv_1(X)
         x = x[:, :, 0]
         x = torch.relu(x)

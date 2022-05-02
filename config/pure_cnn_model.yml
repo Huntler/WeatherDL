@@ -1,4 +1,4 @@
-device: cuda
+device: cpu
 model_name: PURE-CNN-Model
 model_args:
   log: True
