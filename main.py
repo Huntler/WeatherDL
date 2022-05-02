@@ -34,7 +34,7 @@ def prepare_data(mode: str):
             test_config["d_type"] = "test"
             testset = Dataset(**test_config)
             dl = DataLoader(testset)
-            return dl
+            return dl, lambda x: testset.scale_back(x)
 
 def prepare_model() -> BaseModel:    
 
@@ -72,7 +72,7 @@ def prepare_model() -> BaseModel:
 def train():
     # prepare data
     train, val = prepare_data(mode="train")
-    test = prepare_data(mode="test")
+    test, _ = prepare_data(mode="test")
     model = prepare_model()
 
     # train model, save kernel before and afterwards to show differences
@@ -86,7 +86,7 @@ def train():
     plt.savefig(f"{model.log_path}/kernel_diff.png")
 
 def test():
-    test = prepare_data(mode="test")
+    test, scale_back = prepare_data(mode="test")
     model = prepare_model()
 
     real_temp = []
@@ -109,7 +109,10 @@ def test():
         real_temp.append(temp.numpy()[0])
         pred_temp.append(y[-1])
 
-    plot_temperatures([pred_temp, real_temp], ["pred", "real"], size=(20, 10))
+    real_temp = scale_back(real_temp)
+    pred_temp = scale_back(pred_temp)
+    
+    plot_temperatures([pred_temp, real_temp], ["predicted", "real"], size=(6, 3))
     path = config_dict["evaluation"]
     plt.savefig(f"{path}/temperature_city_4.png")
 
@@ -118,6 +121,12 @@ if __name__ == "__main__":
     
     config_path = sys.argv[1]
     config_dict = config.get_args(config_path)
+
+    # perform some config checks
+    ch_in = config_dict["model_args"]["ch_in"]
+    seq_len = config_dict["dataset_args"]["sequence_length"]
+    if ch_in != seq_len:
+        raise RuntimeError(f"Input channel ({ch_in}) and sequence length ({seq_len}) must match.")
     
     # define parameters (depending on device, lower the precision to save memory)
     device = config_dict["device"]

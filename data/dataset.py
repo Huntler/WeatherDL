@@ -47,8 +47,14 @@ class Dataset(torch.utils.data.Dataset):
         return self._mat.shape[-1]
     
     def scale_back(self, data):
+        temp_scaler = self._scaler[2]
+
         data = np.array(data, dtype=self._precision)
-        return self._scaler.inverse_transform(data)
+        dummy_data = np.zeros((len(data), 4), dtype=self._precision)
+        dummy_data[:, 3] = [_ for _ in data]
+
+        scaled_dummy_data = temp_scaler.inverse_transform(dummy_data)
+        return scaled_dummy_data[:, 3]
 
     def __len__(self):
         return max(1, len(self._mat) - self._f_seq - self._seq)
