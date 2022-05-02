@@ -5,19 +5,19 @@ model_args:
   lr: 0.003
   lr_decay: 0.9
   adam_betas: [0.9, 0.999]
-  ch_in: 48
-  ch_out: 192
+  ch_in: 12
+  ch_out: 48
   kernel_size: [4, 5]
   stride: 1
   padding: 0
-  lstm_hidden: 128
-  init_method: zeros
+  lstm_hidden: 48
+  init_method: ones
   out_act: linear
 dataset_args:
   d_type: train
   normalize: True
   bounds: [0, 1]
-  sequence_length: 48
+  sequence_length: 12
   future_steps: 1
 dataloader_args:
   num_workers: 0
